@@ -2,7 +2,7 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { Dumbbell, Flame, TrendingUp, Play } from "lucide-react";
+import { Dumbbell, Flame, TrendingUp, Play, X } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { formatDuration } from "@/lib/utils";
@@ -71,18 +71,30 @@ export default function HomePage() {
         {/* Active session banner */}
         {activeSession && (
           <motion.div variants={item}>
-            <Link href="/workout/live">
-              <div className="neon-border rounded-2xl p-4 bg-emerald-500/10 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/15 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center animate-pulse-neon">
+            <div className="neon-border rounded-2xl p-4 bg-emerald-500/10 flex items-center gap-4">
+              <Link href={`/workout/live?id=${activeSession.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center animate-pulse-neon flex-shrink-0">
                   <Play className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold text-emerald-400">Séance en cours</p>
-                  <p className="text-sm text-muted-foreground">{activeSession.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{activeSession.name}</p>
                 </div>
-                <span className="text-emerald-400 text-sm font-mono">▶</span>
-              </div>
-            </Link>
+                <span className="text-emerald-400 text-sm font-mono flex-shrink-0">▶</span>
+              </Link>
+              <button
+                onClick={async () => {
+                  await db.workoutSessions.update(activeSession.id, {
+                    completedAt: new Date(),
+                    durationSeconds: 0,
+                  });
+                }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                title="Abandonner la séance"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
 
