@@ -154,12 +154,15 @@ function LiveWorkoutContent() {
   const handleFinish = useCallback(async () => {
     if (finishing) return;
     setFinishing(true);
-    const now = new Date();
-    await db.workoutSessions.update(sessionId, {
-      completedAt: now,
-      durationSeconds: elapsed,
-    });
-    fireFinish();
+    try {
+      await db.workoutSessions.update(sessionId, {
+        completedAt: new Date(),
+        durationSeconds: elapsed,
+      });
+    } catch (e) {
+      console.error("handleFinish DB error:", e);
+    }
+    try { fireFinish(); } catch {}
     router.push(`/history/${sessionId}`);
   }, [sessionId, elapsed, fireFinish, router, finishing]);
 
