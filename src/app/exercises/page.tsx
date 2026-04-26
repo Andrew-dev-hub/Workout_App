@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, type MuscleGroup } from "@/lib/db";
+import { db, type MuscleGroup, type Exercise } from "@/lib/db";
 import { MUSCLE_GROUP_LABELS, MUSCLE_GROUP_COLORS, cn } from "@/lib/utils";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Plus, Search, Trash2, X, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CreateExerciseDialog } from "@/components/exercises/create-exercise-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -37,6 +41,10 @@ export default function ExercisesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null);
+  const [editInstructions, setEditInstructions] = useState("");
+  const [savingInstructions, setSavingInstructions] = useState(false);
+
   const exercises = useLiveQuery(async () => {
     const all = await db.exercises.toArray();
     return all
@@ -46,7 +54,6 @@ export default function ExercisesPage() {
         return matchSearch && matchFilter;
       })
       .sort((a, b) => {
-        // Custom exercises first, then alphabetical
         if (a.isCustom !== b.isCustom) return a.isCustom ? -1 : 1;
         return a.name.localeCompare(b.name, "fr");
       });
@@ -68,6 +75,24 @@ export default function ExercisesPage() {
       });
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleOpenDetail = (exercise: Exercise) => {
+    setDetailExercise(exercise);
+    setEditInstructions(exercise.instructions);
+  };
+
+  const handleSaveInstructions = async () => {
+    if (!detailExercise) return;
+    setSavingInstructions(true);
+    try {
+      await db.exercises.update(detailExercise.id, {
+        instructions: editInstructions.trim(),
+      });
+      setDetailExercise(null);
+    } finally {
+      setSavingInstructions(false);
     }
   };
 
@@ -138,7 +163,8 @@ export default function ExercisesPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card rounded-2xl border border-border px-4 py-3 flex items-center gap-3"
+              className="bg-card rounded-2xl border border-border px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-muted-foreground/40 transition-colors"
+              onClick={() => handleOpenDetail(exercise)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
@@ -159,15 +185,17 @@ export default function ExercisesPage() {
                 </div>
               </div>
 
-              {exercise.isCustom && (
+              {exercise.isCustom ? (
                 <button
-                  onClick={() => handleDelete(exercise.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(exercise.id); }}
                   disabled={deleting === exercise.id}
                   className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
                   aria-label="Supprimer"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
               )}
             </motion.div>
           ))}
@@ -184,6 +212,65 @@ export default function ExercisesPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
       />
+
+      {/* Detail / instructions dialog */}
+      <Dialog open={!!detailExercise} onOpenChange={(o) => !o && setDetailExercise(null)}>
+        <DialogContent className="max-w-md w-[95vw] p-0">
+          <DialogHeader className="px-5 pt-5 pb-3">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {detailExercise?.name}
+              {detailExercise?.isCustom && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">
+                  Perso
+                </span>
+              )}
+            </DialogTitle>
+            {detailExercise && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className={cn("text-[10px] px-2 py-0.5 rounded-full border", MUSCLE_GROUP_COLORS[detailExercise.muscleGroup])}>
+                  {MUSCLE_GROUP_LABELS[detailExercise.muscleGroup]}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {EQUIPMENT_LABELS[detailExercise.equipment] ?? detailExercise.equipment}
+                </span>
+              </div>
+            )}
+          </DialogHeader>
+
+          <div className="px-5 pb-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label>
+                Instructions{" "}
+                <span className="text-muted-foreground font-normal">(optionnel)</span>
+              </Label>
+              <Textarea
+                placeholder="Description du mouvement…"
+                value={editInstructions}
+                onChange={(e) => setEditInstructions(e.target.value)}
+                rows={5}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => setDetailExercise(null)}
+                className="flex-1"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleSaveInstructions}
+                disabled={savingInstructions}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white"
+              >
+                {savingInstructions ? "Enregistrement…" : "Enregistrer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
