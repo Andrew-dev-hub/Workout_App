@@ -55,7 +55,17 @@ export default function ExercisesPage() {
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
-      await db.exercises.delete(id);
+      await db.transaction("rw", [db.exercises, db.workoutTemplates], async () => {
+        const templates = await db.workoutTemplates.toArray();
+        for (const template of templates) {
+          if (template.exercises.some((e) => e.exerciseId === id)) {
+            await db.workoutTemplates.update(template.id, {
+              exercises: template.exercises.filter((e) => e.exerciseId !== id),
+            });
+          }
+        }
+        await db.exercises.delete(id);
+      });
     } finally {
       setDeleting(null);
     }
