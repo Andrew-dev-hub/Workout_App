@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, type Exercise, type SetLog, type TemplateExercise, checkPR, getLastSessionSets } from "@/lib/db";
+import { db, type Exercise, type SetLog, type TemplateExercise, checkPR, getLastSessionSets, getLastExerciseNote, saveExerciseNote } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CheckCircle2, Dumbbell, ChevronLeft, ChevronRight } from "lucide-react";
@@ -31,6 +31,8 @@ function LiveWorkoutContent() {
   const [liveExercises, setLiveExercises] = useState<LiveExercise[]>([]);
   const [setInputs, setSetInputs] = useState<Record<string, SetInput[]>>({});
   const [lastSets, setLastSets] = useState<Record<string, SetLog[]>>({});
+  const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
+  const [prevExerciseNotes, setPrevExerciseNotes] = useState<Record<string, string>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [showFinish, setShowFinish] = useState(false);
@@ -61,8 +63,10 @@ function LiveWorkoutContent() {
         setLiveExercises(exercises);
         // Load last session data for each exercise
         const last: Record<string, SetLog[]> = {};
+        const prevNotes: Record<string, string> = {};
         for (const { exercise, templateConfig } of exercises) {
           last[exercise.id] = await getLastSessionSets(exercise.id, sessionId);
+          prevNotes[exercise.id] = await getLastExerciseNote(exercise.id, sessionId);
           // Pre-fill set inputs from template
           const count = templateConfig?.sets ?? 3;
           const prevSets = last[exercise.id].filter(s => !s.isWarmup);
@@ -80,6 +84,7 @@ function LiveWorkoutContent() {
           }));
         }
         setLastSets(last);
+        setPrevExerciseNotes(prevNotes);
       }
     };
 
@@ -99,7 +104,9 @@ function LiveWorkoutContent() {
     const existing = liveExercises.find(e => e.exercise.id === exercise.id);
     if (existing) return;
     const prev = await getLastSessionSets(exercise.id, sessionId);
+    const prevNote = await getLastExerciseNote(exercise.id, sessionId);
     setLastSets(ls => ({ ...ls, [exercise.id]: prev }));
+    setPrevExerciseNotes(pn => ({ ...pn, [exercise.id]: prevNote }));
     setSetInputs(si => ({
       ...si,
       [exercise.id]: Array.from({ length: 3 }, (_, i) => ({
@@ -269,6 +276,13 @@ function LiveWorkoutContent() {
                   onSetsChange={newSets => setSetInputs(prev => ({ ...prev, [currentExercise.exercise.id]: newSets }))}
                   onConfirmSet={i => handleConfirmSet(currentExercise.exercise.id, i)}
                   onStartRest={() => startRest(currentExercise.templateConfig?.restSeconds ?? settings?.defaultRestSeconds ?? 90)}
+                  exerciseNote={exerciseNotes[currentExercise.exercise.id] ?? ""}
+                  prevExerciseNote={prevExerciseNotes[currentExercise.exercise.id] ?? ""}
+                  onExerciseNoteChange={note => setExerciseNotes(prev => ({ ...prev, [currentExercise.exercise.id]: note }))}
+                  onExerciseNoteBlur={() => {
+                    const note = exerciseNotes[currentExercise.exercise.id] ?? "";
+                    saveExerciseNote(sessionId, currentExercise.exercise.id, note);
+                  }}
                 />
               )}
             </motion.div>

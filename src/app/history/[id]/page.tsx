@@ -29,6 +29,11 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
     return db.exercises.bulkGet(ids);
   }, [setLogs]);
 
+  const exerciseNotes = useLiveQuery(async () => {
+    const notes = await db.exerciseNotes.where("sessionId").equals(id).toArray();
+    return Object.fromEntries(notes.map(n => [n.exerciseId, n.note])) as Record<string, string>;
+  }, [id]);
+
   async function handleDelete() {
     setShowConfirm(false);
     setIsDeleting(true);
@@ -148,6 +153,11 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
                     {s.isPR && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 ml-auto flex-shrink-0" />}
                   </div>
                 ))}
+                {exerciseNotes?.[exId] && (
+                  <p className="text-xs text-muted-foreground/60 italic pt-1 border-t border-border/50 mt-2">
+                    {exerciseNotes[exId]}
+                  </p>
+                )}
               </div>
             </motion.div>
           );

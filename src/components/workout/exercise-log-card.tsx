@@ -29,6 +29,10 @@ interface ExerciseLogCardProps {
   onSetsChange: (sets: SetInput[]) => void;
   onConfirmSet: (setIndex: number) => Promise<void>;
   onStartRest: () => void;
+  exerciseNote: string;
+  prevExerciseNote: string;
+  onExerciseNoteChange: (note: string) => void;
+  onExerciseNoteBlur: () => void;
 }
 
 export function ExerciseLogCard({
@@ -41,6 +45,10 @@ export function ExerciseLogCard({
   onSetsChange,
   onConfirmSet,
   onStartRest,
+  exerciseNote,
+  prevExerciseNote,
+  onExerciseNoteChange,
+  onExerciseNoteBlur,
 }: ExerciseLogCardProps) {
 
   const updateSet = useCallback((index: number, field: keyof SetInput, value: string | boolean) => {
@@ -259,6 +267,25 @@ export function ExerciseLogCard({
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
+      </div>
+
+      {/* Exercise note */}
+      <div className="space-y-1.5">
+        {prevExerciseNote && (
+          <div className="px-3 py-2 rounded-xl bg-muted/20 border border-border/40">
+            <p className="text-[11px] text-muted-foreground/50 italic leading-relaxed">
+              {prevExerciseNote}
+            </p>
+          </div>
+        )}
+        <textarea
+          value={exerciseNote}
+          onChange={(e) => onExerciseNoteChange(e.target.value)}
+          onBlur={onExerciseNoteBlur}
+          placeholder="Note pour cet exercice…"
+          rows={2}
+          className="w-full bg-muted/20 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-emerald-500/50 resize-none transition-colors"
+        />
       </div>
 
       {/* Instructions */}

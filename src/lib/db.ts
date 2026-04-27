@@ -95,6 +95,13 @@ export interface Settings {
   onboardingDone: boolean;
 }
 
+export interface ExerciseNote {
+  id: string; // `${sessionId}-${exerciseId}` — déterministe pour upsert
+  sessionId: string;
+  exerciseId: string;
+  note: string;
+}
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 class WorkoutDB extends Dexie {
@@ -104,6 +111,7 @@ class WorkoutDB extends Dexie {
   workoutSessions!: EntityTable<WorkoutSession, "id">;
   setLogs!: EntityTable<SetLog, "id">;
   settings!: EntityTable<Settings, "id">;
+  exerciseNotes!: EntityTable<ExerciseNote, "id">;
 
   constructor() {
     super("WorkoutDB");
@@ -115,6 +123,10 @@ class WorkoutDB extends Dexie {
       workoutSessions: "&id, templateId, programId, startedAt, completedAt",
       setLogs:         "&id, sessionId, exerciseId, loggedAt, isPR",
       settings:        "&id",
+    });
+
+    this.version(2).stores({
+      exerciseNotes: "&id, sessionId, exerciseId",
     });
   }
 }
@@ -176,6 +188,38 @@ export async function getLastSessionSets(
 
   const lastSessionId = recentSets[recentSets.length - 1].sessionId;
   return recentSets.filter((s) => s.sessionId === lastSessionId);
+}
+
+/** Retourne la note d'exercice de la session précédente (vide si aucune) */
+export async function getLastExerciseNote(
+  exerciseId: string,
+  currentSessionId: string
+): Promise<string> {
+  const sets = await db.setLogs
+    .where("exerciseId")
+    .equals(exerciseId)
+    .filter((s) => s.sessionId !== currentSessionId)
+    .sortBy("loggedAt");
+
+  if (sets.length === 0) return "";
+
+  const lastSessionId = sets[sets.length - 1].sessionId;
+  const record = await db.exerciseNotes
+    .where("sessionId")
+    .equals(lastSessionId)
+    .filter((n) => n.exerciseId === exerciseId)
+    .first();
+
+  return record?.note ?? "";
+}
+
+/** Crée ou met à jour la note d'un exercice pour une session donnée */
+export async function saveExerciseNote(
+  sessionId: string,
+  exerciseId: string,
+  note: string
+): Promise<void> {
+  await db.exerciseNotes.put({ id: `${sessionId}-${exerciseId}`, sessionId, exerciseId, note });
 }
 
 /** Récupère ou crée les settings (singleton id=1) */
