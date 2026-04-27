@@ -18,6 +18,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const session = useLiveQuery(() => db.workoutSessions.get(id), [id]);
   const setLogs = useLiveQuery(() => db.setLogs.where("sessionId").equals(id).sortBy("loggedAt"), [id]);
@@ -29,12 +30,14 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
   }, [setLogs]);
 
   async function handleDelete() {
+    setShowConfirm(false);
+    setIsDeleting(true);
     await db.setLogs.where("sessionId").equals(id).delete();
     await db.workoutSessions.delete(id);
     router.replace("/history");
   }
 
-  if (!session) return null;
+  if (!session && !isDeleting) return null;
 
   const volume = setLogs ? calcVolume(setLogs) : 0;
   const prCount = setLogs?.filter(s => s.isPR).length ?? 0;
