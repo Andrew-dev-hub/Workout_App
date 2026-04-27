@@ -57,9 +57,9 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{session.name}</h1>
+          <h1 className="text-xl font-bold truncate">{session?.name}</h1>
           <p className="text-xs text-muted-foreground">
-            {format(new Date(session.startedAt), "EEEE d MMMM yyyy", { locale: fr })}
+            {session?.startedAt && format(new Date(session.startedAt), "EEEE d MMMM yyyy", { locale: fr })}
           </p>
         </div>
         <button
@@ -75,7 +75,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
           <DialogHeader>
             <DialogTitle>Supprimer la séance ?</DialogTitle>
             <DialogDescription>
-              Cette action est irréversible. La séance "{session.name}" et tous ses sets seront définitivement supprimés.
+              Cette action est irréversible. La séance "{session?.name}" et tous ses sets seront définitivement supprimés.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 mt-2">
@@ -96,7 +96,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
         className="grid grid-cols-3 gap-3 mb-6"
       >
         <div className="bg-card border border-border rounded-2xl p-3 text-center">
-          <p className="text-xl font-bold">{formatDuration(session.durationSeconds)}</p>
+          <p className="text-xl font-bold">{formatDuration(session?.durationSeconds ?? 0)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">Durée</p>
         </div>
         <div className="bg-card border border-border rounded-2xl p-3 text-center">
