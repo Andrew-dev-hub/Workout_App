@@ -19,6 +19,7 @@ import {
   formatWeight, formatDuration,
 } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -223,20 +224,23 @@ function GlobalTab({ data }: { data: GlobalData | null }) {
           <SectionTitle>Dernières séances</SectionTitle>
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             {data.recentSessions.map((s, i) => (
-              <div key={s.id}
-                className={cn("px-4 py-3 flex items-center gap-3",
-                  i < data.recentSessions.length - 1 && "border-b border-border")}>
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                  <Dumbbell className="w-4 h-4 text-emerald-400" />
+              <Link key={s.id} href={`/history/${s.id}`}>
+                <div
+                  className={cn("px-4 py-3 flex items-center gap-3 hover:bg-muted/40 transition-colors",
+                    i < data.recentSessions.length - 1 && "border-b border-border")}>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Dumbbell className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{s.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(s.startedAt), "EEE d MMM", { locale: fr })} ·{" "}
+                      {formatDuration(s.durationSeconds)}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(s.startedAt), "EEE d MMM", { locale: fr })} ·{" "}
-                    {formatDuration(s.durationSeconds)}
-                  </p>
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

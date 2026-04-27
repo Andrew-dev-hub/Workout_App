@@ -1,18 +1,23 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { ArrowLeft, Dumbbell, Star } from "lucide-react";
+import { ArrowLeft, Dumbbell, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { formatDuration, formatWeight, MUSCLE_GROUP_LABELS, MUSCLE_GROUP_COLORS, cn } from "@/lib/utils";
 import { calcVolume } from "@/lib/db";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function SessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const session = useLiveQuery(() => db.workoutSessions.get(id), [id]);
   const setLogs = useLiveQuery(() => db.setLogs.where("sessionId").equals(id).sortBy("loggedAt"), [id]);
@@ -23,6 +28,12 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
     return db.exercises.bulkGet(ids);
   }, [setLogs]);
 
+  async function handleDelete() {
+    await db.setLogs.where("sessionId").equals(id).delete();
+    await db.workoutSessions.delete(id);
+    router.replace("/history");
+  }
+
   if (!session) return null;
 
   const volume = setLogs ? calcVolume(setLogs) : 0;
@@ -32,7 +43,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div className="min-h-screen px-4 py-6 max-w-lg mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/">
+        <Link href="/history">
           <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/70 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </div>
@@ -43,7 +54,32 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
             {format(new Date(session.startedAt), "EEEE d MMMM yyyy", { locale: fr })}
           </p>
         </div>
+        <button
+          onClick={() => setShowConfirm(true)}
+          className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-red-500/20 hover:text-red-400 transition-colors flex-shrink-0"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer la séance ?</DialogTitle>
+            <DialogDescription>
+              Cette action est irréversible. La séance "{session.name}" et tous ses sets seront définitivement supprimés.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowConfirm(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={handleDelete}>
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats summary */}
       <motion.div
