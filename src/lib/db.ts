@@ -141,17 +141,23 @@ export async function checkPR(
   weight: number,
   currentSessionId: string
 ): Promise<boolean> {
-  const previous = await db.setLogs
+  if (weight <= 0) return false;
+
+  // Un PR existait déjà dans une session précédente à ce poids ou plus
+  const inPrevious = await db.setLogs
     .where("exerciseId")
     .equals(exerciseId)
-    .filter(
-      (s) =>
-        s.sessionId !== currentSessionId &&
-        !s.isWarmup &&
-        s.weight >= weight
-    )
+    .filter((s) => s.sessionId !== currentSessionId && !s.isWarmup && s.weight >= weight)
     .count();
-  return previous === 0 && weight > 0;
+  if (inPrevious > 0) return false;
+
+  // Ce poids a déjà été atteint dans la session courante → PR déjà comptabilisé
+  const inCurrentSession = await db.setLogs
+    .where("exerciseId")
+    .equals(exerciseId)
+    .filter((s) => s.sessionId === currentSessionId && !s.isWarmup && s.weight >= weight)
+    .count();
+  return inCurrentSession === 0;
 }
 
 /** Récupère les données de la dernière session pour un exercice donné */
