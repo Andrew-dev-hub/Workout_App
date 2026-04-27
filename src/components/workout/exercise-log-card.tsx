@@ -94,7 +94,8 @@ export function ExerciseLogCard({
 
   const workSets = sets.filter(s => !s.isWarmup);
   const confirmedCount = workSets.filter(s => s.confirmed).length;
-  const progress = defaultSets > 0 ? confirmedCount / defaultSets : 0;
+  // Ring fills based on actual sets present; display keeps the template number as indicator
+  const progress = workSets.length > 0 ? confirmedCount / workSets.length : 0;
 
   return (
     <div className="space-y-4">
@@ -124,7 +125,7 @@ export function ExerciseLogCard({
             />
           </svg>
           <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
-            {confirmedCount}/{defaultSets}
+            {confirmedCount}/{workSets.length}
           </span>
         </div>
       </div>

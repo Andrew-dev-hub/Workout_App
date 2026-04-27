@@ -215,8 +215,8 @@ function LiveWorkoutContent() {
             {liveExercises.map((le, i) => {
               const exSets = setInputs[le.exercise.id] ?? [];
               const done = exSets.filter(s => s.confirmed && !s.isWarmup).length;
-              const total = le.templateConfig?.sets ?? exSets.filter(s => !s.isWarmup).length;
-              const complete = total > 0 && done >= total;
+              const actual = exSets.filter(s => !s.isWarmup).length;
+              const complete = actual > 0 && done >= actual;
 
               return (
                 <button
