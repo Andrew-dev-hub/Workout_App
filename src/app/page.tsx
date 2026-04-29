@@ -17,18 +17,11 @@ export default function HomePage() {
       .filter((s) => s.completedAt !== null)
       .limit(5)
       .toArray();
-
-    const programIds = [
-      ...new Set(sessions.map((s) => s.programId).filter((id): id is string => id !== null)),
-    ];
-    const programs = programIds.length > 0
-      ? await db.programs.where("id").anyOf(programIds).toArray()
-      : [];
-    const programsMap = new Map(programs.map((p) => [p.id, p]));
-
+    const programs = await db.programs.toArray();
+    const map = new Map(programs.map((p) => [p.id, p]));
     return sessions.map((s) => ({
       ...s,
-      program: s.programId ? (programsMap.get(s.programId) ?? null) : null,
+      program: s.programId ? (map.get(s.programId) ?? null) : null,
     }));
   }, []);
 

@@ -38,13 +38,15 @@ function fmtVolume(kg: number): string {
 
 interface WeekPoint { label: string; volume: number; sessions: number }
 
+type SessionWithProgram = WorkoutSession & { program: Program | null };
+
 interface GlobalData {
   totalSessions: number;
   totalVolume: number;
   totalPRs: number;
   avgDuration: number;
   volumePerWeek: WeekPoint[];
-  recentSessions: WorkoutSession[];
+  recentSessions: SessionWithProgram[];
 }
 
 interface ExerciseSummary {
@@ -131,13 +133,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 // ── Global Tab ────────────────────────────────────────────────────────────────
 
-function GlobalTab({ data, allPrograms }: { data: GlobalData | null; allPrograms: Program[] | undefined }) {
-  const programsMap = useMemo(() => {
-    const map = new Map<string, Program>();
-    allPrograms?.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [allPrograms]);
-
+function GlobalTab({ data }: { data: GlobalData | null }) {
   if (!data) return (
     <div className="text-center py-16 text-muted-foreground text-sm">Chargement…</div>
   );
@@ -240,9 +236,11 @@ function GlobalTab({ data, allPrograms }: { data: GlobalData | null; allPrograms
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{s.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {s.programId && (() => { const p = programsMap.get(s.programId!); return p ? (
-                        <span style={{ color: p.color }} className="font-medium">{p.name} · {" "}</span>
-                      ) : null; })()}
+                      {s.program && (
+                        <span style={{ color: s.program.color }} className="font-medium">
+                          {s.program.name} · {" "}
+                        </span>
+                      )}
                       {format(new Date(s.startedAt), "EEE d MMM", { locale: fr })} ·{" "}
                       {formatDuration(s.durationSeconds)}
                     </p>
@@ -552,16 +550,18 @@ export default function StatsPage() {
       };
     });
 
-    const recentSessions = [...allSessions]
+    const pMap = new Map(allPrograms?.map((p) => [p.id, p]) ?? []);
+    const recentSessions: SessionWithProgram[] = [...allSessions]
       .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-      .slice(0, 5);
+      .slice(0, 5)
+      .map((s) => ({ ...s, program: s.programId ? (pMap.get(s.programId) ?? null) : null }));
 
     return {
       totalSessions: allSessions.length,
       totalVolume, totalPRs, avgDuration,
       volumePerWeek, recentSessions,
     };
-  }, [allSessions, allSetLogs]);
+  }, [allSessions, allSetLogs, allPrograms]);
 
   // ── Exercise summaries (tab 2 list) ──
   const exerciseSummaries = useMemo((): ExerciseSummary[] => {
@@ -668,7 +668,7 @@ export default function StatsPage() {
 
       <AnimatePresence mode="wait">
         {tab === "global" ? (
-          <GlobalTab key="global" data={globalData} allPrograms={allPrograms} />
+          <GlobalTab key="global" data={globalData} />
         ) : (
           <ExercisesTab
             key="exercises"
