@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { Dumbbell, Flame, TrendingUp, Play, X } from "lucide-react";
@@ -10,20 +11,27 @@ import { format, startOfWeek, eachDayOfInterval, endOfWeek, isSameDay } from "da
 import { fr } from "date-fns/locale";
 
 export default function HomePage() {
-  const recentSessions = useLiveQuery(async () => {
-    const sessions = await db.workoutSessions
-      .orderBy("startedAt")
-      .reverse()
-      .filter((s) => s.completedAt !== null)
-      .limit(5)
-      .toArray();
-    const programs = await db.programs.toArray();
-    const map = new Map(programs.map((p) => [p.id, p]));
-    return sessions.map((s) => ({
+  const rawSessions = useLiveQuery(
+    () =>
+      db.workoutSessions
+        .orderBy("startedAt")
+        .reverse()
+        .filter((s) => s.completedAt !== null)
+        .limit(5)
+        .toArray(),
+    []
+  );
+
+  const allPrograms = useLiveQuery(() => db.programs.toArray(), []);
+
+  const recentSessions = useMemo(() => {
+    if (!rawSessions || !allPrograms) return undefined;
+    const map = new Map(allPrograms.map((p) => [p.id, p]));
+    return rawSessions.map((s) => ({
       ...s,
       program: s.programId ? (map.get(s.programId) ?? null) : null,
     }));
-  }, []);
+  }, [rawSessions, allPrograms]);
 
   const weekSessions = useLiveQuery(async () => {
     const start = startOfWeek(new Date(), { weekStartsOn: 1 });
