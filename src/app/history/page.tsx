@@ -131,7 +131,13 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 // ── Global Tab ────────────────────────────────────────────────────────────────
 
-function GlobalTab({ data, programsMap }: { data: GlobalData | null; programsMap: Map<string, Program> }) {
+function GlobalTab({ data, allPrograms }: { data: GlobalData | null; allPrograms: Program[] | undefined }) {
+  const programsMap = useMemo(() => {
+    const map = new Map<string, Program>();
+    allPrograms?.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [allPrograms]);
+
   if (!data) return (
     <div className="text-center py-16 text-muted-foreground text-sm">Chargement…</div>
   );
@@ -234,11 +240,9 @@ function GlobalTab({ data, programsMap }: { data: GlobalData | null; programsMap
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{s.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {s.programId && programsMap.get(s.programId) && (
-                        <span style={{ color: programsMap.get(s.programId)!.color }} className="font-medium">
-                          {programsMap.get(s.programId)!.name} · {" "}
-                        </span>
-                      )}
+                      {s.programId && (() => { const p = programsMap.get(s.programId!); return p ? (
+                        <span style={{ color: p.color }} className="font-medium">{p.name} · {" "}</span>
+                      ) : null; })()}
                       {format(new Date(s.startedAt), "EEE d MMM", { locale: fr })} ·{" "}
                       {formatDuration(s.durationSeconds)}
                     </p>
@@ -513,11 +517,6 @@ export default function StatsPage() {
   const allSetLogs = useLiveQuery(() => db.setLogs.toArray(), []);
   const allExercises = useLiveQuery(() => db.exercises.toArray(), []);
   const allPrograms = useLiveQuery(() => db.programs.toArray(), []);
-  const programsMap = useMemo(() => {
-    const map = new Map<string, Program>();
-    allPrograms?.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [allPrograms]);
 
   // ── Global stats ──
   const globalData = useMemo((): GlobalData | null => {
@@ -669,7 +668,7 @@ export default function StatsPage() {
 
       <AnimatePresence mode="wait">
         {tab === "global" ? (
-          <GlobalTab key="global" data={globalData} programsMap={programsMap} />
+          <GlobalTab key="global" data={globalData} allPrograms={allPrograms} />
         ) : (
           <ExercisesTab
             key="exercises"

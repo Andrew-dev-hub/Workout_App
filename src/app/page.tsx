@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { Dumbbell, Flame, TrendingUp, Play, X } from "lucide-react";
@@ -11,16 +10,27 @@ import { format, startOfWeek, eachDayOfInterval, endOfWeek, isSameDay } from "da
 import { fr } from "date-fns/locale";
 
 export default function HomePage() {
-  const recentSessions = useLiveQuery(
-    () =>
-      db.workoutSessions
-        .orderBy("startedAt")
-        .reverse()
-        .filter((s) => s.completedAt !== null)
-        .limit(5)
-        .toArray(),
-    []
-  );
+  const recentSessions = useLiveQuery(async () => {
+    const sessions = await db.workoutSessions
+      .orderBy("startedAt")
+      .reverse()
+      .filter((s) => s.completedAt !== null)
+      .limit(5)
+      .toArray();
+
+    const programIds = [
+      ...new Set(sessions.map((s) => s.programId).filter((id): id is string => id !== null)),
+    ];
+    const programs = programIds.length > 0
+      ? await db.programs.where("id").anyOf(programIds).toArray()
+      : [];
+    const programsMap = new Map(programs.map((p) => [p.id, p]));
+
+    return sessions.map((s) => ({
+      ...s,
+      program: s.programId ? (programsMap.get(s.programId) ?? null) : null,
+    }));
+  }, []);
 
   const weekSessions = useLiveQuery(async () => {
     const start = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -36,13 +46,6 @@ export default function HomePage() {
     () => db.workoutSessions.filter((s) => s.completedAt === null).first(),
     []
   );
-
-  const allPrograms = useLiveQuery(() => db.programs.toArray(), []);
-  const programsMap = useMemo(() => {
-    const map = new Map<string, { name: string; color: string }>();
-    allPrograms?.forEach((p) => map.set(p.id, { name: p.name, color: p.color }));
-    return map;
-  }, [allPrograms]);
 
   const weekDays = eachDayOfInterval({
     start: startOfWeek(new Date(), { weekStartsOn: 1 }),
@@ -194,9 +197,9 @@ export default function HomePage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{session.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {session.programId && programsMap.get(session.programId) && (
-                        <span style={{ color: programsMap.get(session.programId)!.color }} className="font-medium">
-                          {programsMap.get(session.programId)!.name} · {" "}
+                      {session.program && (
+                        <span style={{ color: session.program.color }} className="font-medium">
+                          {session.program.name} · {" "}
                         </span>
                       )}
                       {format(new Date(session.startedAt), "EEE d MMM", { locale: fr })} · {formatDuration(session.durationSeconds)}
