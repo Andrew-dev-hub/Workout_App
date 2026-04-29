@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type WorkoutTemplate } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
@@ -10,26 +10,28 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 export default function WorkoutStartPage() {
   const router = useRouter();
   const [freeName, setFreeName] = useState("Séance libre");
   const [loading, setLoading] = useState(false);
 
-  const settings = useLiveQuery(() => db.settings.get(1), []);
-  const activeProgram = useLiveQuery(
-    () => settings?.activeProgramId ? db.programs.get(settings.activeProgramId) : undefined,
-    [settings?.activeProgramId]
+  const programs = useLiveQuery(
+    () => db.programs.toArray().then(arr => arr.sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt))),
+    []
   );
-  const templates = useLiveQuery(
-    async (): Promise<WorkoutTemplate[]> => {
-      if (!settings?.activeProgramId) return [];
-      return db.workoutTemplates.where("programId").equals(settings.activeProgramId).sortBy("order");
-    },
-    [settings?.activeProgramId]
-  );
-  const programs = useLiveQuery(() => db.programs.toArray(), []);
+  const allTemplates = useLiveQuery(() => db.workoutTemplates.toArray(), []);
+
+  const templatesByProgram = useMemo(() => {
+    const map = new Map<string, WorkoutTemplate[]>();
+    allTemplates?.forEach(t => {
+      const list = map.get(t.programId) ?? [];
+      list.push(t);
+      map.set(t.programId, list);
+    });
+    map.forEach(list => list.sort((a, b) => a.order - b.order));
+    return map;
+  }, [allTemplates]);
 
   const startWorkout = async (template?: WorkoutTemplate, name?: string) => {
     setLoading(true);
@@ -65,7 +67,7 @@ export default function WorkoutStartPage() {
 
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
 
-        {/* Quick free session */}
+        {/* Séance libre */}
         <motion.div variants={item}>
           <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Séance libre</h2>
           <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
@@ -74,67 +76,67 @@ export default function WorkoutStartPage() {
               onChange={e => setFreeName(e.target.value)}
               placeholder="Nom de la séance"
             />
-            <Button
-              className="w-full"
-              onClick={() => startWorkout(undefined, freeName)}
-              disabled={loading}
-            >
+            <Button className="w-full" onClick={() => startWorkout(undefined, freeName)} disabled={loading}>
               <Play className="w-4 h-4 mr-2" /> Démarrer maintenant
             </Button>
           </div>
         </motion.div>
 
-        {/* Active program templates */}
-        {activeProgram && templates && templates.length > 0 && (
-          <motion.div variants={item}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                {activeProgram.name}
-              </h2>
-              <Link href={`/programs/${activeProgram.id}`} className="text-xs text-emerald-400 hover:text-emerald-300">
-                Modifier
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => startWorkout(template)}
-                  disabled={loading}
-                  className="w-full bg-card border border-border rounded-2xl p-4 flex items-center gap-3 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left"
-                >
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: activeProgram.color + "22" }}
-                  >
-                    <Dumbbell className="w-5 h-5" style={{ color: activeProgram.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{template.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {template.exercises.length} exercice{template.exercises.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
+        {/* Un bloc par programme */}
+        {programs?.map(program => {
+          const templates = templatesByProgram.get(program.id) ?? [];
+          return (
+            <motion.div key={program.id} variants={item}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: program.color }} />
+                  <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    {program.name}
+                  </h2>
+                </div>
+                <Link href={`/programs/${program.id}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
+                  Modifier
+                </Link>
+              </div>
 
-        {/* No active program nudge */}
-        {!activeProgram && programs && programs.length > 0 && (
-          <motion.div variants={item}>
-            <div className="bg-muted/30 border border-border border-dashed rounded-2xl p-4 text-center">
-              <p className="text-sm text-muted-foreground mb-3">Aucun programme actif</p>
-              <Link href="/programs">
-                <Button variant="outline" size="sm">Choisir un programme</Button>
-              </Link>
-            </div>
-          </motion.div>
-        )}
+              {templates.length > 0 ? (
+                <div className="space-y-2">
+                  {templates.map(template => (
+                    <button
+                      key={template.id}
+                      onClick={() => startWorkout(template)}
+                      disabled={loading}
+                      className="w-full bg-card border border-border rounded-2xl p-4 flex items-center gap-3 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all text-left"
+                    >
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: program.color + "22" }}
+                      >
+                        <Dumbbell className="w-5 h-5" style={{ color: program.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{template.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {template.exercises.length} exercice{template.exercises.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-muted/20 border border-border border-dashed rounded-2xl p-3 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Aucune séance dans ce programme</p>
+                  <Link href={`/programs/${program.id}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
+                    Ajouter →
+                  </Link>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
 
-        {/* No programs at all */}
+        {/* Aucun programme */}
         {(!programs || programs.length === 0) && (
           <motion.div variants={item}>
             <div className="bg-muted/30 border border-border border-dashed rounded-2xl p-5 text-center space-y-3">

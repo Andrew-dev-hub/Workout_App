@@ -67,9 +67,6 @@ export default function ProgramsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold truncate">{program.name}</p>
-                      {program.isActive && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">Actif</span>
-                      )}
                     </div>
                     {program.description && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">{program.description}</p>
@@ -142,14 +139,6 @@ function ProgramDialog({ open, program, onClose }: { open: boolean; program: Pro
     onClose();
   };
 
-  const handleSetActive = async () => {
-    if (!program) return;
-    await db.programs.where("isActive").equals(1).modify({ isActive: false });
-    await db.programs.update(program.id, { isActive: true });
-    await db.settings.update(1, { activeProgramId: program.id });
-    onClose();
-  };
-
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-sm">
@@ -200,11 +189,6 @@ function ProgramDialog({ open, program, onClose }: { open: boolean; program: Pro
             <Button onClick={handleSave} disabled={!name.trim()}>
               {program ? "Enregistrer" : "Créer"}
             </Button>
-            {program && !program.isActive && (
-              <Button variant="neon" onClick={handleSetActive}>
-                Définir comme actif
-              </Button>
-            )}
             {program && (
               <Button variant="ghost" onClick={handleDelete} className="text-destructive hover:text-destructive">
                 <Trash2 className="w-4 h-4 mr-1" /> Supprimer le programme
